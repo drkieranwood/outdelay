@@ -17,11 +17,11 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-set(FLYVSLAM_SOURCE_FILES         
+set(IMLIM_SOURCE_FILES         
 	src/imlim.cpp 
 )
 
-set(FLYVSLAM_HEADER_FILES        
+set(IMLIM_HEADER_FILES        
   	include/imlim/imlim.h  
 )
 
@@ -38,5 +38,5 @@ set(FLYVSLAM_HEADER_FILES
 #target_link_libraries(${PROJECT_NAME} another_library)
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
-rosbuild_add_executable(imlim ${FLYVSLAM_SOURCE_FILES} ${FLYVSLAM_HEADER_FILES})
+rosbuild_add_executable(imlim ${IMLIM_SOURCE_FILES} ${IMLIM_HEADER_FILES})
 #target_link_libraries(example ${PROJECT_NAME})
