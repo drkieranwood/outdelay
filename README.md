@@ -1,5 +1,4 @@
-imlim
+outdelay
 ========
 
-A node to limit a image transmission rate. It does this by passing a 
-pointer rather than a ful image object.
+A node to implement a delay in the output control path to the ARDrone2.0

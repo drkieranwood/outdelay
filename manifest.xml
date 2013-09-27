@@ -1,13 +1,13 @@
 <package>
-  <description brief="imlim">
+  <description brief="outdelay">
 
-     imlim
+     outdelay
 
   </description>
   <author>Kieran</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/imlim</url>
+  <url>http://ros.org/wiki/outdelay</url>
   <depend package="roslib"/>
   <depend package="roscpp"/>
   <depend package="std_msgs"/>
