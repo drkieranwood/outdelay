@@ -2,14 +2,11 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-#include "sensor_msgs/Image.h"
 #include "geometry_msgs/Twist.h"
-#include <math.h>
-#include <cmath>
-#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <outdelay/outdelay.h>
 
 
 //This node captures all incomming mesages on a topic and then tries to 
@@ -27,33 +24,38 @@
 //=========================
 //Global variables
 //=========================		
+
+//Debug messages flag.
+int showDebugMsgs = 0;
+
 //Storage array for many cmd_vel message pointers and received times. 
 //An array of size 1000 is used and will cover most delays. 
 //At 100Hz this gives a 10s delay.
 geometry_msgs::TwistConstPtr dataArray[1000];
 ros::Time timeArray[1000];
 
-//Array size
+//The size of the above storage arrays
 int arraySize=1000;
 //Current input location in the array. This is where the last received data was put.
 int lastInIdx=0;
 //Current output location in the array. This is where the last data was 
-//re-sent from in the array
+//re-sent from in the array.
 int lastOutIdx=0;
 
-//The time delay required in seconds.
-double delayTime = 0.2;
+//Time to monitor the node loop rate
+ros::Time lastLoopTime;
 
 
-
-//=========================
+//======================
 //Incomming message callback
-//=========================	
-//Function to capture arriving messages into the storage array. 
-//They are stored as pointers to save memory and cpu time.
+//for a new twist message
+//======================
 void twistCallback(const geometry_msgs::TwistConstPtr& msg)
 {
-	//Move along one index location, if at the end then loop.
+	//The latest message is put into the storage array as a pointer. The
+	//when this occured is also stored.
+	
+	//Move along one index location, if at the end, then loop.
 	lastInIdx++;
 	if (lastInIdx==arraySize)
 	{
@@ -66,19 +68,63 @@ void twistCallback(const geometry_msgs::TwistConstPtr& msg)
 }
 
 
-
+//======================
+//Main function
+//======================
+//1)subscribes to the input stream
+//2)captures every frame from the input stream
+//3)check the storage arrays and republishes messages if the delay has expired.
 int main(int argc, char **argv)
 {
-	ROS_INFO("outdelay::Start delay script.");
 	//Setup ROS node (register with roscore etc.)
+	ROS_INFO("outdelay::Start script.");
 	ros::init(argc, argv, "outdelay");
 	ros::NodeHandle n;
 	
-	//Subscribe to the incomming twist messages
-	ros::Subscriber sub_cmd_vel = n.subscribe("/cmd_vel", 1, twistCallback);
 	
+	//=========================
+	//Check the arguments
+	//=========================
+	double delayTime;
+	std::string inputTopic;
+	std::string outputTopic;
+	
+	//If there are missing arguments then use the default values
+	if (argc!=4)
+	{
+		ROS_WARN("outdelay::%d arguments given. Expected 3 -> [delay inTopic outTopic]",argc-1);
+		delayTime = 0.0;
+		inputTopic  = std::string("/cmd_vel_pre");
+		outputTopic = std::string("/cmd_vel");
+		ROS_INFO("outdelay::Using default delay: %6.3fHz",delayTime);
+		ROS_INFO("outdelay::Using default input topic:  %s",inputTopic.c_str());
+		ROS_INFO("outdelay::Using default output topic: %s",outputTopic.c_str());
+	}
+	else
+	{
+		//If all arguments have been provided then extract the information.	
+		delayTime = atof(argv[1]);
+		inputTopic  = argv[2];
+		outputTopic = argv[3];
+		ROS_INFO("outdelay::Using given delay: %6.3fHz",delayTime);
+		ROS_INFO("outdelay::Using given input topic:  %s",inputTopic.c_str());
+		ROS_INFO("outdelay::Using given output topic: %s",outputTopic.c_str());
+	}
+	
+	
+	//=========================
+	//Publishers and subscibers
+	//=========================
+	
+	//Subscribe to the incomming twist messages
+	ros::Subscriber sub_cmd_vel = n.subscribe(inputTopic.c_str(), 1, twistCallback);
 	//Publisher for outgoing, delayed, messages
-	ros::Publisher  pub_cmd_vel = n.advertise<geometry_msgs::Twist>("/cmd_vel_delay", 1);
+	ros::Publisher  pub_cmd_vel = n.advertise<geometry_msgs::Twist>(outputTopic.c_str(), 1);
+
+
+	//=========================
+	//Other variables
+	//=========================
 
 
 
@@ -87,9 +133,6 @@ int main(int argc, char **argv)
 	//=========================						
 	double loopRate = 1000.0;                         
 	ros::Rate rateLimiter(loopRate);
-	//Time to monitor the node loop rate
-	ros::Time lastLoopTime;
-
 
 
 	//=========================
@@ -101,7 +144,7 @@ int main(int argc, char **argv)
 	ros::Duration sleepone = ros::Duration(1,0);
 	sleepone.sleep();
 	sleepone.sleep();
-	ROS_INFO("outdelay::Start loop at %5.2fHz",loopRate);		
+	ROS_INFO("outdelay::Start loop at %6.3fHz",loopRate);		
 	
 	//Main loop. Loop forever until node is killed.
 	while (ros::ok())
@@ -131,7 +174,7 @@ int main(int argc, char **argv)
 				pub_cmd_vel.publish(dataArray[ii]);
 				lastOutIdx = ii;
 				double dealyStats = (ros::Time::now() - timeArray[ii]).toSec();
-				ROS_INFO("outdelay::Delay time: %6.4fs",dealyStats);
+				ROS_INFO("outdelay::Delay time: %6.5fs",dealyStats);
 			}
 			else
 			{
@@ -144,20 +187,20 @@ int main(int argc, char **argv)
 		}
 		
 		
-	
 		//Check for new ros messages
 		ros::spinOnce();
 		rateLimiter.sleep();
 		ros::spinOnce();	
 		
-		if (0)
+		if (showDebugMsgs)
 		{
-			//Find and publish the node rate.
+			//Find and publish the node rate (this is different to the output rate).
 			double loopRate = (1.0)/((ros::Time::now() - lastLoopTime).toSec());
 			lastLoopTime = ros::Time::now();
 			ROS_INFO("outdelay::Node rate: %6.3fs",loopRate);
 		}
-	}
+		
+	} //end main loop
 	
 	ROS_INFO("outdelay::End delay script.");
   	return 0;
